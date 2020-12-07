@@ -1,0 +1,5 @@
+1;Guillermo;Casas;Reche;20-10-20010;None;Jefe;30000.0;14
+2;Sandra;Canales;Fraile;12-12-2029;None;CEO;40000.0;14
+3;Levis;Casas;Canales;20-10-2020;10-11-2020;Mozo;16000.0;13
+4;Nala;Canales;Fraile;03-06-2009;None;Coordinadora;22000.0;14
+5;Nona;Canales;Casas;15-09-2010;15-09-2020;Redactor;20000.0;14
