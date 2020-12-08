@@ -1,10 +1,15 @@
 from tkinter import *
 import sqlite3
 import re
+import math
+
+# author Guillermo Casas Reche
+# author g.casas.r94@gmail.com
 
 # =========< VARIABLES GLOBALES >=========
 
 # Variables de DDBB
+global conn  # Conexión
 dbName = "test"
 tableName = "Empleados"
 COLUMNAS = (
@@ -16,88 +21,39 @@ COLUMNAS = (
     'FECHA BAJA',
     'CATEGORIA',
     'SALARIO',
-    'NUMERO DE PAGAS'
-)
+    'NUMERO DE PAGAS',
+    'SALARIO SEMANAL',
+    'PRORRATAS'
+)  # No usado
 
 ruta = "Empleados.txt"  # Ruta del archivo
-separadorFile = ';'
-global conn  # Conexión
+separadorFile = ';'  # Separador en el fichero generado
+decimal = 2  # Decimales de los calculos
 
 
 # =========< FUNCIONES GLOBALES >=========
-
-def saveFile():
-    f = open(ruta, 'w')
-    f.write(StringToList(getAll(), separadorFile))
-    f.close()
-    print("Fichero creado")
-
-
-# Operaciones CRUD
-def getAll():
-    cursor = conn.cursor()
-    cursor.execute("Select*from {}".format(tableName))
-    datos = cursor.fetchall()
-    listaEmp = list(map(lambda d: parseEmpleado(d), datos))
-    cursor.close()
-    return listaEmp
-
-
-def getActive():
-    cursor = conn.cursor()
-    cursor.execute("Select*from {} where fechbaja IS NULL".format(tableName))
-    datos = cursor.fetchall()
-    listaEmp = list(map(lambda d: parseEmpleado(d), datos))
-    cursor.close()
-    return listaEmp
-
-
-def getID(code):
-    cursor = conn.cursor()
-    cursor.execute("Select*from {} where cod={}".format(tableName, code))
-    empleado = Empleado("", "", "", "", "", "", "", "", "")
-    datos = cursor.fetchall()
-    if len(datos) > 0:
-        print("Encontrado")
-        empleado = parseEmpleado(datos[0])
-   
-    cursor.close()
-    return empleado
-
-
-def addEmplo(empleado):
-    cursor = conn.cursor()
-    cursor.execute("Insert into {} values('{}','{}','{}','{}','{}',{},'{}','{}','{}')".format(
-        tableName,
-        empleado.cod,
-        empleado.nombre,
-        empleado.apellido1,
-        empleado.apellido2,
-        empleado.fechalta,
-        "'"+empleado.fechbaja+"'" if empleado.fechbaja != "" else 'Null',
-        empleado.categoria,
-        empleado.salanual,
-        empleado.numpagas
-    ))
-    # cursor.fetchone()
-    conn.commit()
-    cursor.close()
-
-
-def deleteID(code):
-    cursor = conn.cursor()
-    cursor.execute("delete from {} where cod={}".format(tableName, code))
-    conn.commit()
-    cursor.close()
-
-
 # Función de conversión de una lista a un objeto Empleado
 def parseEmpleado(datos):
-    return Empleado(datos[0], datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], datos[8])
+    return Empleado(
+        datos[0],  # COD
+        datos[1],  # Nombre
+        datos[2],  # Apellido 1
+        datos[3],  # Apellido 2
+        datos[4],  # Fecha Alta
+        datos[5],  # Fecha baja
+        datos[6],  # Categoría
+        datos[7],  # Saldo anual
+        datos[8],  # Numero Pagas
+        datos[9],  # Saldo Mensual
+        datos[10])  # Prorrata
 
 
-# Función que trasforma una lista de objetos en un String
-# apto para la salida por pantalla
+def truncate(number, decimals=0):
+    factor = 10.0 ** decimals
+    return math.trunc(number * factor) / factor
+
+
+# Función que trasforma una lista de objetos en un String apto para la salida por pantalla
 def StringToList(lista, separador, ty=True):
     salida = ""
     for d in lista:
@@ -112,13 +68,14 @@ def StringToList(lista, separador, ty=True):
         perlist.append(str(d.categoria))
         perlist.append(str(d.salanual))
         perlist.append(str(d.numpagas))
+        perlist.append(str(d.salmensu))
+        perlist.append(str(d.prorrata))
 
         salida += separador.join(perlist) + "\n"
     return salida
 
 
-# Función encargada de imprimir en el contenedor una lista
-# de elementos
+# Función encargada de imprimir en el contenedor una lista de elementos
 def printDatos(contenedor, lista):
     # texto = " | ".join(COLUMNAS)+"\n"+StringToList(lista)
     texto = StringToList(lista, '\t|\t', False)
@@ -128,6 +85,96 @@ def printDatos(contenedor, lista):
     contenedor.config(state=DISABLED)
 
 
+def saveFile():
+    f = open(ruta, 'w')
+    f.write(separadorFile.join(COLUMNAS)+"\n")
+    f.write(StringToList(getAll(), separadorFile))
+    f.close()
+    print("Fichero creado")
+
+
+# =========< FUNCIONES CRUD >=========
+def getAll():
+    print("Obtener todos")
+    cursor = conn.cursor()
+    cursor.execute("Select*from {}".format(tableName))
+    datos = cursor.fetchall()
+    listaEmp = list(map(lambda d: parseEmpleado(d), datos))
+    cursor.close()
+    return listaEmp
+
+
+def getActive():
+    print("Obtener todos los activos")
+    cursor = conn.cursor()
+    cursor.execute("Select*from {} where fechbaja IS NULL".format(tableName))
+    datos = cursor.fetchall()
+    listaEmp = list(map(lambda d: parseEmpleado(d), datos))
+    cursor.close()
+    return listaEmp
+
+
+def getID(code=0):
+    print("Buscar por codigo",code)
+    cursor = conn.cursor()
+    cursor.execute("Select*from {} where cod={}".format(tableName, code))
+    empleado = Empleado("", "", "", "", "", "", "", "", "", "", "")
+    datos = cursor.fetchall()
+    if len(datos) > 0:
+        print("Encontrado: ",code)
+        empleado = parseEmpleado(datos[0])
+
+    cursor.close()
+    return empleado
+
+
+def addEmplo(empleado):
+    print("Añadir", empleado.nombre)
+    cursor = conn.cursor()
+    cursor.execute("Insert into {} "
+                   "(cod,"
+                   "nombre,"
+                   "apellido1,"
+                   "apellido2,"
+                   "fechalta,"
+                   "fechbaja,"
+                   "categoria,"
+                   "salanual,"
+                   "numpagas)"
+                   " values('{}','{}','{}','{}','{}',{},'{}','{}','{}')".format(
+        tableName,
+        empleado.cod,
+        empleado.nombre,
+        empleado.apellido1,
+        empleado.apellido2,
+        empleado.fechalta,
+        "'" + empleado.fechbaja + "'" if empleado.fechbaja != "" else 'Null',
+        empleado.categoria,
+        empleado.salanual,
+        empleado.numpagas
+    ))
+    # cursor.fetchone()
+    conn.commit()
+    cursor.close()
+
+
+def updateCalculo(cod, salmensual, prorrata):
+    print("Actualizar",cod)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE {} set salmensu={}, prorrata={} where cod={}".format(tableName, salmensual, prorrata, cod))
+    conn.commit()
+    cursor.close()
+
+
+def deleteID(code):
+    print("Eliminar",code)
+    cursor = conn.cursor()
+    cursor.execute("delete from {} where cod={}".format(tableName, code))
+    conn.commit()
+    cursor.close()
+
+
+# =========< FUNCIONES TESTs >=========
 # Función simple que devuelve el un match
 buscaMatch = lambda cad, patr : re.match(patr, cad)
 
@@ -141,7 +188,6 @@ def testFecha(fecha, ty=True):
     return test
 
 
-# =========< FUNCIONES TESTs >=========
 def testNum(numero):
     if testNoEmpty(numero) and not re.findall(r'\D', numero):
         return float(numero) > 0
@@ -174,8 +220,8 @@ def newVentanaEliminar():
 
 
 # =========< CLASES MODELO >=========
-class Empleado():
-    def __init__(self, cod, nombre, apellido1, apellido2, fechalta, fechbaja, categoria, salanual, numpagas):
+class Empleado:
+    def __init__(self, cod, nombre, apellido1, apellido2, fechalta, fechbaja, categoria, salanual, numpagas, salmensu = None, prorrata = None):
         self.cod = cod
         self.nombre = nombre
         self.apellido1 = apellido1
@@ -185,9 +231,11 @@ class Empleado():
         self.categoria = categoria
         self.salanual = salanual
         self.numpagas = numpagas
+        self.salmensu = salmensu
+        self.prorrata = prorrata
 
     def __str__(self):
-        return "{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}".format(
+        return "{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}\t|\t{}".format(
             self.cod,
             self.nombre,
             self.apellido1,
@@ -196,25 +244,30 @@ class Empleado():
             self.fechbaja,
             self.categoria,
             self.salanual,
-            self.numpagas
+            self.numpagas,
+            self.salmensu,
+            self.prorrata
         )
 
 
 # =========< CLASES VENTANAS >=========
+# Ventana ERROR
 class VentanaError:
     def salir(self):
         self.addV.destroy()
-    
+
     def __init__(self, mensaje):
         self.addV = Tk()
         self.addV.config(pady=10, padx=10)
+        self.addV.resizable(0, 0)
 
         Label(self.addV, text="ERROR:", justify=CENTER).grid(row=0, column=0)
         Label(self.addV, text=mensaje, justify=CENTER).grid(row=0, column=1)
         Button(self.addV, text="Aceptar", command=self.salir, justify=CENTER).grid(row=1, column=0, columnspan=2)
 
 
-class VentanaAdd:   
+# Ventana NUEVO EMPLEADO
+class VentanaAdd:
 
     def testDatos(self):
         test = True
@@ -246,7 +299,7 @@ class VentanaAdd:
         elif not testNum(self.numpagas.get()):
             mensaje = "Numero de pagas invalidas"
             test = False
-        
+
         if test:
             self.add()
         else:
@@ -292,6 +345,7 @@ class VentanaAdd:
 
         self.addV.title("Nuevo Empleado")
         self.addV.config(pady=5, padx=5)
+        self.addV.resizable(0, 0)
 
         # Cod
         Label(self.addV, text="Codigo").grid(row=0, column=0)
@@ -334,26 +388,42 @@ class VentanaAdd:
         self.addV.mainloop()
 
 
+# Ventana NOMINA
 class VentanaNomina:
+    buscado = Empleado(None, None, None, None, None, None, None, None, None, None, None)
+
+    def buscar(self):
+        if not testNoEmpty(self.cod.get()):
+            self.cod.set(0)
+
+        self.buscado = getID(self.cod.get())
+        self.butCal.config(state=DISABLED)
+        self.burActu.config(state=DISABLED)
+        if testNoEmpty(self.buscado.cod): self.butCal.config(state=NORMAL)
+        self.nomAll.set("{} {} {}".format(self.buscado.nombre, self.buscado.apellido1, self.buscado.apellido2))
+        self.salanual.set(self.buscado.salanual)
+        self.salmensual.set(self.buscado.salmensu)
+        self.prorrata.set(self.buscado.prorrata)
 
     def calcular(self):
-        buscado = getID(self.cod.get())
-
-        self.nomAll.set("{} {} {}".format(buscado.nombre, buscado.apellido1, buscado.apellido2))
-        self.salanual.set("ERROR")
+        self.burActu.config(state=NORMAL)
         self.salmensual.set("ERROR")
         self.prorrata.set("ERROR")
 
-        if type(buscado.salanual) == float and (type(buscado.numpagas) == int):
-            print("Todo OK")
-            self.salanual.set(buscado.salanual)
-            self.salmensual.set(buscado.salanual/12)
-            self.prorrata.set(eval("({}*{})/{}".format(buscado.numpagas, buscado.salanual/12, 12)))
+        if type(self.buscado.salanual) == float and (type(self.buscado.numpagas) == int):
+            self.salmensual.set(truncate(self.buscado.salanual/12, decimal))
+            self.prorrata.set(truncate(eval("({}*{})/{}".format(self.buscado.numpagas, self.buscado.salanual/12, 12)), decimal))
+
+    def actualizar(self):
+        updateCalculo(self.buscado.cod, self.salmensual.get(), self.prorrata.get())
+        recargar()
+        self.addV.destroy()
 
     def __init__(self):
         self.addV = Tk()
         self.addV.title("Nomina")
         self.addV.config(pady=5, padx=5)
+        self.addV.resizable(0, 0)
 
         self.cod = StringVar(self.addV)
         self.nomAll = StringVar(self.addV)
@@ -364,33 +434,40 @@ class VentanaNomina:
         # Cod
         Label(self.addV, text="Codigo").grid(row=0, column=0)
         Entry(self.addV, textvariable=self.cod).grid(row=0, column=1)
+        Button(self.addV, text="Buscar", command=self.buscar, width=10).grid(row=0, column=2, pady=10)
 
         # Nombre  y apellidos
-        Label(self.addV, text="Nombre").grid(row=0, column=2)
-        Entry(self.addV, textvariable=self.nomAll, state=DISABLED, disabledforeground="#000000").grid(row=0, column=3)
+        Label(self.addV, text="Nombre").grid(row=1, column=0)
+        Entry(self.addV, textvariable=self.nomAll, state=DISABLED, disabledforeground="#000000", width=56).grid(row=1, column=1, columnspan=3)
 
         # salanual
-        Label(self.addV, text="Salario Anual").grid(row=1, column=0)
-        Entry(self.addV, textvariable=self.salanual, state=DISABLED, disabledforeground="#000000").grid(row=1, column=1)
+        Label(self.addV, text="Salario Anual").grid(row=2, column=0)
+        Entry(self.addV, textvariable=self.salanual, state=DISABLED, disabledforeground="#000000").grid(row=2, column=1)
 
         # salmensual
-        Label(self.addV, text="Salario Mensual").grid(row=1, column=2)
-        Entry(self.addV, textvariable=self.salmensual, state=DISABLED, disabledforeground="#000000").grid(row=1, column=3)
+        Label(self.addV, text="Salario Mensual").grid(row=2, column=2)
+        Entry(self.addV, textvariable=self.salmensual, state=DISABLED, disabledforeground="#000000").grid(row=2, column= 3)
 
         # prorrata
-        Label(self.addV, text="Prorrata").grid(row=2, column=2)
-        Entry(self.addV, textvariable=self.prorrata, state=DISABLED, disabledforeground="#000000").grid(row=2, column=3)
+        Label(self.addV, text="Prorrata").grid(row=3, column=2)
+        Entry(self.addV, textvariable=self.prorrata, state=DISABLED, disabledforeground="#000000").grid(row=3, column=3)
 
-        Button(self.addV, text="Buscar", command=self.calcular, width=40).grid(row=3, column=1, columnspan=2, pady=10)
+        self.butCal = Button(self.addV, text="Calcular", command=self.calcular, state=DISABLED, width=20)
+        self. butCal.grid(row=4, column=0, columnspan=2, pady=10)
+        self.burActu = Button(self.addV, text="Actualizar", command=self.actualizar, state=DISABLED, width=20)
+        self.burActu.grid(row=4, column=2, columnspan=2, pady=10)
 
         self.addV.mainloop()
 
 
+# Ventana BUSCAR
 class VentanaBuscar:
 
     def buscar(self):
-        print("A buscar: "+self.cod.get())
-        buscado = getID(self.cod.get())
+        if not testNoEmpty(self.cod.get()):
+            self.cod.set(0)
+
+        buscado = getID(self.cod.get() )
         self.nombre.set(buscado.nombre)
         self.apellido1.set(buscado.apellido1)
         self.apellido2.set(buscado.apellido2)
@@ -399,11 +476,14 @@ class VentanaBuscar:
         self.categoria.set(buscado.categoria)
         self.salanual.set(buscado.salanual)
         self.numpagas.set(buscado.numpagas)
+        self.salmensual.set(buscado.salmensu)
+        self.prorrata.set(buscado.prorrata)
 
     def __init__(self):
         self.addV = Tk()
         self.addV.title("Buscar")
         self.addV.config(pady=5, padx=5)
+        self.addV.resizable(0, 0)
 
         self.cod = StringVar(self.addV)
         self.nombre = StringVar(self.addV)
@@ -414,6 +494,8 @@ class VentanaBuscar:
         self.categoria = StringVar(self.addV)
         self.salanual = StringVar(self.addV)
         self.numpagas = StringVar(self.addV)
+        self.salmensual = StringVar(self.addV)
+        self.prorrata = StringVar(self.addV)
 
         # Cod
         Label(self.addV, text="Codigo").grid(row=0, column=0)
@@ -451,14 +533,25 @@ class VentanaBuscar:
         Label(self.addV, text="Numero de Pagas").grid(row=3, column=4)
         Entry(self.addV, textvariable=self.numpagas, state=DISABLED, disabledforeground="#000000").grid(row=3, column=5)
 
-        Button(self.addV, text="Buscar", command=self.buscar, width=40).grid(row=4, column=2, columnspan=2, pady=10)
+        # salmensual
+        Label(self.addV, text="Salario Mensual").grid(row=4, column=0)
+        Entry(self.addV, textvariable=self.salmensual, state=DISABLED, disabledforeground="#000000").grid(row=4, column=1)
+
+        # prorrata
+        Label(self.addV, text="Prorrata").grid(row=4, column=2)
+        Entry(self.addV, textvariable=self.prorrata, state=DISABLED, disabledforeground="#000000").grid(row=4, column=3)
+
+        Button(self.addV, text="Buscar", command=self.buscar, width=40).grid(row=5, column=2, columnspan=2, pady=10)
         self.addV.mainloop()
 
 
+# Ventana ELIMINAR
 class VentanaEliminar:
 
     def buscar(self):
-        print("A buscar: "+self.cod.get())
+        if not testNoEmpty(self.cod.get()):
+            self.cod.set(0)
+
         buscado = getID(self.cod.get())
 
         self.butEliminar.config(state=DISABLED)
@@ -473,7 +566,9 @@ class VentanaEliminar:
         self.categoria.set(buscado.categoria)
         self.salanual.set(buscado.salanual)
         self.numpagas.set(buscado.numpagas)
-    
+        self.salmensual.set(buscado.salmensu)
+        self.prorrata.set(buscado.prorrata)
+
     def eliminar(self):
         print("A eliminar: "+self.cod.get())
         deleteID(self.cod.get())
@@ -484,6 +579,7 @@ class VentanaEliminar:
         self.addV = Tk()
         self.addV.title("Buscar")
         self.addV.config(pady=5, padx=5)
+        self.addV.resizable(0, 0)
 
         self.cod = StringVar(self.addV)
         self.nombre = StringVar(self.addV)
@@ -494,6 +590,8 @@ class VentanaEliminar:
         self.categoria = StringVar(self.addV)
         self.salanual = StringVar(self.addV)
         self.numpagas = StringVar(self.addV)
+        self.salmensual = StringVar(self.addV)
+        self.prorrata = StringVar(self.addV)
 
         # Cod
         Label(self.addV, text="Codigo").grid(row=0, column=0)
@@ -531,16 +629,26 @@ class VentanaEliminar:
         Label(self.addV, text="Numero de Pagas").grid(row=3, column=4)
         Entry(self.addV, textvariable=self.numpagas, state=DISABLED, disabledforeground="#000000").grid(row=3, column=5)
 
-        Button(self.addV, text="Buscar", command=self.buscar, width=20).grid(row=4, column=1, columnspan=2, pady=10)
+        # salmensual
+        Label(self.addV, text="Salario Mensual").grid(row=4, column=0)
+        Entry(self.addV, textvariable=self.salmensual, state=DISABLED, disabledforeground="#000000").grid(row=4, column=1)
+
+        # prorrata
+        Label(self.addV, text="Prorrata").grid(row=4, column=2)
+        Entry(self.addV, textvariable=self.prorrata, state=DISABLED, disabledforeground="#000000").grid(row=4, column=3)
+
+        Button(self.addV, text="Buscar", command=self.buscar, width=20).grid(row=5, column=1, columnspan=2, pady=10)
         self.butEliminar = Button(self.addV, text="Eliminar", command=self.eliminar, width=20, state=DISABLED)
-        self.butEliminar.grid(row=4, column=3, columnspan=2, pady=10)
+        self.butEliminar.grid(row=5, column=3, columnspan=2, pady=10)
         self.addV.mainloop()
 
 
+# =========< VENTANA PRINCIPAL >=========
 class MainVentana:
     root = Tk()
     root.title("Principal")
     root.geometry('1100x350')
+    root.resizable(0, 0)
     # root.config(pady=5, padx=5)
 
     # Generación de menús
