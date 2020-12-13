@@ -3,6 +3,7 @@ import sqlite3
 import re
 import math
 
+# Ejercicio Gestión de empresas --> app Gestión de Empleados
 # author Guillermo Casas Reche
 # author g.casas.r94@gmail.com
 
@@ -10,7 +11,7 @@ import math
 
 # Variables de DDBB
 global conn  # Conexión
-dbName = "test"
+dbName = "empresaDB"
 tableName = "Empleados"
 COLUMNAS = (
     'COD',
@@ -28,7 +29,7 @@ COLUMNAS = (
 
 ruta = "Empleados.txt"  # Ruta del archivo
 separadorFile = ';'  # Separador en el fichero generado
-decimal = 2  # Decimales de los calculos
+decimal = 2  # Decimales de los cálculos
 
 
 # =========< FUNCIONES GLOBALES >=========
@@ -219,7 +220,7 @@ def newVentanaEliminar():
     VentanaEliminar()
 
 
-# =========< CLASES MODELO >=========
+# =========< CLASE MODELO >=========
 class Empleado:
     def __init__(self, cod, nombre, apellido1, apellido2, fechalta, fechbaja, categoria, salanual, numpagas, salmensu = None, prorrata = None):
         self.cod = cod
